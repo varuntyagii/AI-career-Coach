@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String           @id @default(uuid())
+  clerkUserId     String           @unique
+  email           String           @unique
+  name            String?
+  imageUrl        String?
+
+  industry        String?           // ✅ FIXED: made optional
+  industryInsight IndustryInsight? @relation(fields: [industry], references: [industry])
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  bio             String?
+  experience      Int?
+  skills          String[]
+
+  assessments     Assessment[]
+  resume          Resume?
+  coverLetter     CoverLetter[]
+  quizResults     QuizResult[]
+}
+
+
+model Assessment {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  quizScore      Float
+  questions      Json 
+  category       String
+  improvementTip String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Resume {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  content   String   @db.Text
+  atsScore  Float?
+  feedback  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CoverLetter {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  content        String
+  jobDescription String?
+  companyName    String
+  jobTitle       String
+  status         String   @default("draft")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model IndustryInsight {
+  id                String    @id @default(cuid())
+  industry          String    @unique
+  users             User[]
+
+  salaryRanges      Json[]
+  growthRate        Float
+  demandLevel       DemandLevel
+  topSkills         String[]
+  marketOutlook     MarketOutlook
+  keyTrends         String[]
+  recommendedSkills String[]
+  lastUpdated       DateTime @default(now())
+  nextUpdate        DateTime
+
+  @@index([industry])
+}
+
+model PastQuestion {
+  id        String   @id @default(cuid())
+  userId    String
+  question  String
+  createdAt DateTime @default(now())
+}
+
+model QuizResult {
+  id         String   @id @default(uuid())
+  userId     String
+  sessionId  String
+  quizData   Json
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+enum DemandLevel {
+  High
+  Medium
+  Low
+}
+
+enum MarketOutlook {
+  Positive
+  Neutral
+  Negative
+}
