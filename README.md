@@ -41,8 +41,8 @@ It combines AI-powered tools for resume building, cover letter generation, and i
 
 1. **Clone the repository:**
    ```sh
-   git clone https://github.com/your-username/your-repo-name.git
-   cd your-repo-name
+   git clone https://github.com/varuntyagii/AI-career-Coach.git
+   cd AI-career-Coach
    ```
 
 2. **Install dependencies:**
@@ -75,3 +75,6 @@ Pull requests are welcome! For major changes, please open an issue first to disc
 ## 📄 License
 
 This project is licensed under the MIT License.
+
+## You can see this live on your repo:
+https://github.com/varuntyagii/AI-career-Coach
