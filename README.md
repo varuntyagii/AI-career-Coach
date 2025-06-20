@@ -4,9 +4,11 @@
 It combines AI-powered tools for resume building, cover letter generation, and interactive interview preparation—all in one place!
 
 ---
-## 👇 Scan to Use the App Live  
+## 📲 Scan to Use the App Live
 
-![frame (4)](https://github.com/user-attachments/assets/847b6d4e-8359-4d76-812d-733c07cfec7d)
+<a href="https://ai-career-coach-b2z4.vercel.app" target="_blank">
+  <img src="https://github.com/user-attachments/assets/847b6d4e-8359-4d76-812d-733c07cfec7d" alt="Scan QR Code" width="200" />
+</a>
 
 ## ✨ Features
 
