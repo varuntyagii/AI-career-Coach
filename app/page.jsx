@@ -140,14 +140,13 @@ export default function Home() {
               >
                 <div className="p-6 flex flex-col space-y-4">
                   <div className="flex items-center space-x-4">
-                    <div className="relative h-12 w-12 flex-shrink-0">
+                    <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-full border-2 border-primary/20">
                       <Image
-                        width={48}
-                        height={48}
+                        width={64}
+                        height={64}
                         src={testimonial.image}
                         alt={testimonial.author}
-                        className="rounded-full object-cover border-2 border-primary/20"
-                        onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }}
+                        className="object-cover object-[center_60%] w-full h-full rounded-full bg-white"
                       />
                     </div>
                     <div>
