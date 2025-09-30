@@ -13,7 +13,7 @@ if (!process.env.GEMINI_API_KEY) {
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-export async function generateQuiz() {
+export async function generateQuiz(difficulty = "medium") {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
@@ -41,7 +41,7 @@ You are a professional technical interviewer.
 🔧 Task:
 Generate 10 completely not repeated, NEW and UNIQUE multiple-choice questions (MCQs) for a "${user.industry}" role ${
   user.skills?.length ? `with skills in ${user.skills.join(", ")}` : ""
-}.
+} at a "${difficulty}" level.
 
 🧠 Past Questions (DO NOT REPEAT ANY OF THESE):
 ${[...pastSet].slice(0, 50).map((q, i) => `${i + 1}. ${q}`).join("\n")}
@@ -53,7 +53,7 @@ ${[...pastSet].slice(0, 50).map((q, i) => `${i + 1}. ${q}`).join("\n")}
 - Any markdown or extra text.
 
 ✅ Ensure:
-- All questions are challenging and diverse.
+- All questions are ${difficulty === "medium" ? "simple and medium-level" : difficulty} and diverse.
 - Each question MUST have 4 options: 3 incorrect and 1 correct.
 - Each object MUST clearly mention the correct answer.
 - Each object MUST include a short explanation.

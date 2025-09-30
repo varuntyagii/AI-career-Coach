@@ -13,7 +13,6 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { generateQuiz, saveAssessment } from "@/actions/interview";
-import useFetch from "@/hooks/use-fetch";
 import { Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Confetti from "react-confetti";
@@ -112,64 +111,48 @@ export default function Quiz() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [isActive, setIsActive] = useState(false);
 
-  const {
-    loading: generatingQuiz,
-    fn: generateQuizFn,
-    data: quizData,
-    error: quizError,
-  } = useFetch(generateQuiz);
+  // State for quiz generation
+  const [generatingQuiz, setGeneratingQuiz] = useState(false);
+  const [quizData, setQuizData] = useState(null);
+  const [quizError, setQuizError] = useState(null);
 
-  const {
-    loading: savingResult,
-    fn: saveAssessmentFn,
-    data: resultData,
-    setData: setResultData,
-    error: saveError,
-  } = useFetch(saveAssessment);
+  // State for saving results
+  const [savingResult, setSavingResult] = useState(false);
+  const [resultData, setResultData] = useState(null);
+  const [saveError, setSaveError] = useState(null);
 
-  useEffect(() => {
-    if (quizData && Array.isArray(quizData)) {
-      setAnswers(new Array(quizData.length).fill(null));
+  // Function to save assessment
+  const saveAssessmentFn = async (assessmentPayload) => {
+    setSavingResult(true);
+    setSaveError(null);
+    try {
+      const response = await saveAssessment(assessmentPayload);
+      setResultData(response);
+      toast.success("Quiz results saved!");
+    } catch (error) {
+      console.error("Error saving assessment:", error);
+      setSaveError(error.message || "Failed to save quiz results");
+      toast.error(error.message || "Failed to save quiz results");
+    } finally {
+      setSavingResult(false);
     }
-  }, [quizData]);
-
-  useEffect(() => {
-    if (quizError) {
-      toast.error(quizError.message || "Failed to generate quiz");
-    }
-    if (saveError) {
-      toast.error(saveError.message || "Failed to save quiz results");
-    }
-  }, [quizError, saveError]);
-
-  const transformResultData = (quizData, answers, score) => {
-    if (!quizData || !Array.isArray(quizData)) {
-      return { quizScore: 0, questions: [] };
-    }
-
-    const questions = quizData.map((q, index) => ({
-      question: q.question || "Question not available",
-      userAnswer: answers[index] || "Not answered",
-      answer: q.correctAnswer,
-      isCorrect: answers[index] === q.correctAnswer,
-      explanation: q.explanation || "No explanation available",
-    }));
-
-    return {
-      quizScore: score || 0,
-      questions,
-      improvementTip: score < 70 ? "Review the correct answers and explanations to improve your understanding." : undefined,
-    };
   };
 
-  const getOptionPrefix = (index) => {
-    return String.fromCharCode(65 + index) + ". ";
-  };
-
-  const handleAnswer = (answer) => {
-    const newAnswers = [...answers];
-    newAnswers[currentQuestion] = answer;
-    setAnswers(newAnswers);
+  // Function to initiate quiz generation
+  const generateQuizFn = async () => {
+    setGeneratingQuiz(true);
+    setQuizError(null);
+    try {
+      const newQuizData = await generateQuiz();
+      setQuizData(newQuizData);
+      setAnswers(new Array(newQuizData.length).fill(null));
+    } catch (error) {
+      console.error("Error generating quiz:", error);
+      setQuizError(error.message || "Failed to generate quiz");
+      toast.error(error.message || "Failed to generate quiz");
+    } finally {
+      setGeneratingQuiz(false);
+    }
   };
 
   const calculateScore = () => {
@@ -181,15 +164,6 @@ export default function Quiz() {
       }
     });
     return (correct / quizData.length) * 100;
-  };
-
-  const handleNext = () => {
-    if (currentQuestion < quizData.length - 1) {
-      setCurrentQuestion(currentQuestion + 1);
-      setShowExplanation(false);
-    } else {
-      finishQuiz();
-    }
   };
 
   const finishQuiz = async () => {
@@ -265,6 +239,84 @@ export default function Quiz() {
       };
       setResultData(transformedResult);
     }
+  };
+
+  const handleNext = () => {
+    if (currentQuestion < quizData.length - 1) {
+      setCurrentQuestion(currentQuestion + 1);
+      setShowExplanation(false);
+    } else {
+      finishQuiz();
+    }
+  };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.ctrlKey && event.key === 'Enter') {
+        event.preventDefault();
+        if (answers[currentQuestion]) {
+          handleNext();
+        }
+      }
+      if (event.ctrlKey && event.key === 'e') {
+        event.preventDefault();
+        if (answers[currentQuestion]) {
+          setShowExplanation(prev => !prev);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [answers, currentQuestion, handleNext, finishQuiz]);
+
+  useEffect(() => {
+    if (quizData && Array.isArray(quizData)) {
+      setAnswers(new Array(quizData.length).fill(null));
+    }
+  }, [quizData]);
+
+  useEffect(() => {
+    if (quizError) {
+      toast.error(quizError);
+    }
+    if (saveError) {
+      toast.error(saveError);
+    }
+  }, [quizError, saveError]);
+
+  const transformResultData = (quizData, answers, score) => {
+    if (!quizData || !Array.isArray(quizData)) {
+      return { quizScore: 0, questions: [] };
+    }
+
+    const questions = quizData.map((q, index) => ({
+      question: q.question || "Question not available",
+      userAnswer: answers[index] || "Not answered",
+      answer: q.correctAnswer,
+      isCorrect: answers[index] === q.correctAnswer,
+      explanation: q.explanation || "No explanation available",
+    }));
+
+    return {
+      quizScore: score || 0,
+      questions,
+      improvementTip: score < 70 ? "Review the correct answers and explanations to improve your understanding." : undefined,
+    };
+  };
+
+  const getOptionPrefix = (index) => {
+    return String.fromCharCode(65 + index) + ". ";
+  };
+
+  const handleAnswer = (answer) => {
+    const newAnswers = [...answers];
+    newAnswers[currentQuestion] = answer;
+    setAnswers(newAnswers);
   };
 
   const startNewQuiz = () => {
@@ -616,6 +668,7 @@ className="bg-gradient-to-r from-blue-500 to-blue-600 h-2.5 rounded-full shadow-
                 variant="outline"
                 disabled={!answers[currentQuestion]}
                 className="w-full sm:w-auto bg-transparent border-white text-white hover:bg-gray-700 px-4 py-2 text-sm sm:px-6 sm:py-3 sm:text-base cursor-pointer"
+                title="Show/Hide Explanation (Ctrl + E)"
               >
                 {showExplanation ? "Hide Explanation" : "Show Explanation"}
               </Button>
@@ -625,6 +678,7 @@ className="bg-gradient-to-r from-blue-500 to-blue-600 h-2.5 rounded-full shadow-
                 onClick={handleNext}
                 disabled={!answers[currentQuestion] || savingResult}
                 className="w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-emerald-800 hover:from-emerald-500 hover:to-emerald-700 text-white shadow-md hover:shadow-lg transition duration-300 px-4 py-2 text-sm sm:px-6 sm:py-3 sm:text-base cursor-pointer"
+                title={currentQuestion < quizData.length - 1 ? "Next Question (Ctrl + Enter)" : "Finish Quiz (Ctrl + Enter)"}
               >
                 {savingResult && (
                   <Loader2 className="animate-spin mr-2" size={16} />
