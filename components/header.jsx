@@ -102,6 +102,8 @@
 // export default Header
 
 
+"use client";
+
 import {
   SignedIn,
   SignedOut,
@@ -127,11 +129,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { checkUser } from "@/lib/checkUser";
 
-const Header = async () => {
-  await checkUser(); // Ensure user is checked before rendering
-  // This will ensure that the user is checked before rendering the header
+const Header = () => {
   return (
     <header className="fixed top-0 w-full border-b bg-background/80 backdrop-blur-md z-50 supports-[backdrop-filter]:bg-background/60">
       <nav className="container mx-auto flex h-16 items-center justify-between px-4">

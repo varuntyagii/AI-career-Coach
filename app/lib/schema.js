@@ -69,6 +69,7 @@ export const resumeSchema = z.object({
 
 
 export const coverLetterSchema = z.object({
+  
   jobTitle: z.string().min(2),
   companyName: z.string().min(2),
   jobDescription: z.string().min(10),
