@@ -225,10 +225,15 @@ export async function generateCoverLetter(data) {
   });
   if (!user) throw new Error("User not found");
 
+  const fullName = `${data.firstName ?? ""} ${data.lastName ?? ""}`.trim();
   const prompt = `
     Write a professional cover letter for a ${data.jobTitle} position at ${data.companyName}.
     
-    About the candidate:
+    Candidate:
+    - Name: ${fullName || "(use a professional placeholder if missing)"}
+    - Email: ${data.email || ""}
+    - Phone: ${data.phone || ""}
+    - Address: ${data.address || ""}
     - Industry: ${user.industry}
     - Years of Experience: ${user.experience}
     - Skills: ${user.skills?.join(", ")}
@@ -245,6 +250,8 @@ export async function generateCoverLetter(data) {
     5. Use proper business letter formatting in markdown
     6. Include specific examples of achievements
     7. Relate candidate's background to job requirements
+    8. Include a simple header with the candidate's contact details (name, email, phone, address) at the top.
+    9. Close the letter with the candidate's full name: ${fullName}
     
     Format the letter in markdown.
   `;

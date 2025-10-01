@@ -69,7 +69,11 @@ export const resumeSchema = z.object({
 
 
 export const coverLetterSchema = z.object({
-  
+  firstName: z.string().min(2, "First name is required"),
+  lastName: z.string().min(2, "Last name is required"),
+  email: z.string().email("Enter a valid email address"),
+  phone: z.string().min(7, "Enter a valid phone number").optional(),
+  address: z.string().min(3, "Enter a valid address").optional(),
   jobTitle: z.string().min(2),
   companyName: z.string().min(2),
   jobDescription: z.string().min(10),

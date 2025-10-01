@@ -474,6 +474,7 @@ export default function ResumeBuilder({ initialContent }) {
   const { user } = useUser();
   const [resumeMode, setResumeMode] = useState("preview");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaved, setIsSaved] = useState(!!initialContent);
 
   const {
     control,
@@ -510,12 +511,17 @@ export default function ResumeBuilder({ initialContent }) {
     if (activeTab === "edit") {
       const newContent = getCombinedContent();
       setPreviewContent(newContent || initialContent || "");
+      // Mark as unsaved when content changes (unless it's initial content)
+      if (initialContent && newContent !== initialContent) {
+        setIsSaved(false);
+      }
     }
   }, [formValues, activeTab]);
 
   useEffect(() => {
     if (saveResult && !isSaving) {
-      toast.success("Resume saved successfully!");
+      toast.success("Resume saved successfully! You can now download the PDF.");
+      setIsSaved(true);
     }
     if (saveError) {
       toast.error(saveError.message || "Failed to save resume");
@@ -551,22 +557,46 @@ export default function ResumeBuilder({ initialContent }) {
   };
 
   const handleGeneratePDF = async () => {
+    // Check if resume is saved first
+    if (!isSaved) {
+      toast.error("Please save your resume first before downloading PDF");
+      return;
+    }
+
+    // Validate if there's content to generate PDF
+    if (!previewContent || previewContent.trim() === "") {
+      toast.error("Please add some content to your resume before downloading");
+      return;
+    }
+
+    const element = document.getElementById("resume-pdf");
+    if (!element) {
+      toast.error("Resume content not found. Please try again.");
+      return;
+    }
+
+    // Check if element has actual content
+    if (!element.textContent || element.textContent.trim() === "") {
+      toast.error("Please fill in your resume details before downloading");
+      return;
+    }
+
     setIsGenerating(true);
     try {
       const html2pdf = (await import("html2pdf.js")).default;
-      const element = document.getElementById("resume-pdf");
       const opt = {
         margin: [15, 15],
-        filename: "resume.pdf",
+        filename: `${user?.fullName || "resume"}_resume.pdf`,
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2 },
+        html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       };
 
       await html2pdf().set(opt).from(element).save();
+      toast.success("PDF downloaded successfully!");
     } catch (error) {
       console.error("PDF generation error:", error);
-      toast.error("Failed to generate PDF");
+      toast.error("Failed to generate PDF. Please try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -612,8 +642,9 @@ export default function ResumeBuilder({ initialContent }) {
           </Button>
           <Button
             onClick={handleGeneratePDF}
-            disabled={isGenerating}
+            disabled={isGenerating || !isSaved || !previewContent || previewContent.trim() === ""}
             className="transition-all duration-200 hover:scale-105 w-full sm:w-auto cursor-pointer"
+            title={!isSaved ? "Please save your resume first" : (!previewContent || previewContent.trim() === "" ? "Please add content to your resume first" : "Download your resume as PDF")}
           >
             {isGenerating ? (
               <>

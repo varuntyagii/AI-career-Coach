@@ -259,6 +259,14 @@ export default function Quiz() {
           handleNext();
         }
       }
+      if (event.ctrlKey && event.shiftKey && event.key === 'Enter') {
+        event.preventDefault();
+        // Go to previous question if possible
+        if (currentQuestion > 0) {
+          setCurrentQuestion((q) => Math.max(0, q - 1));
+          setShowExplanation(false);
+        }
+      }
       if (event.ctrlKey && event.key === 'e') {
         event.preventDefault();
         if (answers[currentQuestion]) {
@@ -541,6 +549,67 @@ className="bg-gradient-to-r from-blue-500 to-blue-600 h-2.5 rounded-full shadow-
   const progress = ((currentQuestion + 1) / quizData.length) * 100;
   const questionText = question?.question || "Question not available";
 
+  const isCodeLike = (text) => {
+    if (!text || typeof text !== "string") return false;
+    const hasFences = text.includes("```") || text.includes("\n    ");
+    const looksLikeCode = /[;{}=<>]|\bfunction\b|\bclass\b|\bconst\b|\blet\b|\bvar\b/.test(text);
+    const manyLines = text.split("\n").length >= 3;
+    return hasFences || (looksLikeCode && manyLines);
+  };
+
+  const RenderContent = ({ content }) => {
+    if (isCodeLike(content)) {
+      return (
+        <pre className="w-full overflow-x-auto bg-[#0D1117] text-[#e6edf3] border border-gray-800 rounded-md p-0 text-sm">
+<code className="block">
+{content.replace(/^```[a-zA-Z]*\n?|```$/g, "").split("\n").map((line, idx) => (
+  `${String(idx + 1).padStart(2, ' ')}  ${line}`
+)).join("\n")}
+</code>
+        </pre>
+      );
+    }
+    return <p className="text-base font-medium text-black whitespace-pre-wrap">{content}</p>;
+  };
+
+  // Split question into plain text and code block when mixed
+  const splitQuestion = (text) => {
+    if (!text) return { plain: "", code: "", lang: "" };
+    const fenceStart = text.indexOf("```");
+    if (fenceStart !== -1) {
+      const fenceEnd = text.indexOf("```", fenceStart + 3);
+      const inner = fenceEnd !== -1 ? text.slice(fenceStart + 3, fenceEnd) : text.slice(fenceStart + 3);
+      const firstLineBreak = inner.indexOf("\n");
+      const possibleLang = firstLineBreak !== -1 ? inner.slice(0, firstLineBreak).trim() : "";
+      const lang = possibleLang && possibleLang.length <= 20 ? possibleLang : "";
+      const code = lang ? inner.slice(firstLineBreak + 1) : inner;
+      const plain = text.slice(0, fenceStart).trim();
+      return { plain, code, lang };
+    }
+    // Heuristic: find first code-like line
+    const lines = text.split("\n");
+    const firstCodeIdx = lines.findIndex(l => /[;{}=<>]|\bfunction\b|\bclass\b|\bconst\b|\blet\b|\bvar\b/.test(l));
+    if (firstCodeIdx > 0) {
+      return { plain: lines.slice(0, firstCodeIdx).join("\n").trim(), code: lines.slice(firstCodeIdx).join("\n"), lang: "javascript" };
+    }
+    return { plain: text, code: "", lang: "" };
+  };
+
+  const { plain: questionPlainText, code: questionCode, lang: questionLangRaw } = splitQuestion(questionText);
+  const questionLang = (questionLangRaw || '').toLowerCase();
+  const languageLabel = questionLang
+    ? (questionLang === 'js' ? 'JavaScript' : questionLang.charAt(0).toUpperCase() + questionLang.slice(1))
+    : 'JavaScript';
+
+  const copyCode = async (code) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      toast.success("Code copied");
+    } catch {
+      toast.error("Failed to copy");
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -581,7 +650,7 @@ className="bg-gradient-to-r from-blue-500 to-blue-600 h-2.5 rounded-full shadow-
           </CardHeader>
           <CardContent className="p-6 space-y-6">
             <motion.div
-              className="p-6 rounded-lg border min-h-[120px] flex items-center"
+              className="p-6 rounded-lg border border-gray-300 bg-white min-h-[120px]"
               whileHover={{
                 scale: 1.01,
                 boxShadow: [
@@ -614,7 +683,33 @@ className="bg-gradient-to-r from-blue-500 to-blue-600 h-2.5 rounded-full shadow-
                 repeatType: "reverse",
               }}
             >
-              <p className="text-base font-medium text-black">{questionText}</p>
+              {/* Plain text prompt (never in code editor) */}
+              {questionPlainText && (
+                <p className="text-base font-medium text-black whitespace-pre-wrap">{questionPlainText}</p>
+              )}
+              {/* Code block when present */}
+              {questionCode && (
+                <div className="mt-4 border border-gray-800 rounded-md overflow-hidden">
+                  <div className="flex items-center justify-between px-3 py-2 bg-[#0b0f14] text-gray-300 text-xs">
+                    <span className="font-medium">{languageLabel}</span>
+                    <button
+                      type="button"
+                      onClick={() => copyCode(questionCode)}
+                      className="px-2 py-1 rounded bg-gray-700 text-white hover:bg-gray-600 cursor-pointer"
+                      title="Copy code"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <pre className="w-full overflow-x-auto bg-[#0D1117] text-[#e6edf3] p-3 text-sm">
+<code className="block">
+{questionCode.split("\n").map((line, idx) => (
+  `${String(idx + 1).padStart(2, ' ')}  ${line}`
+)).join("\n")}
+</code>
+                  </pre>
+                </div>
+              )}
             </motion.div>
             <RadioGroup
               onValueChange={handleAnswer}
@@ -638,7 +733,13 @@ className="bg-gradient-to-r from-blue-500 to-blue-600 h-2.5 rounded-full shadow-
                     className="text-white text-sm cursor-pointer flex-1"
                   >
                     <span className="font-bold mr-2">{getOptionPrefix(index)}</span>
-                    {option}
+                    {isCodeLike(option) ? (
+                      <pre className="mt-1 overflow-x-auto bg-[#0D1117] text-[#e6edf3] border border-gray-700 rounded p-2 text-xs">
+<code>{String(option).replace(/^```[a-zA-Z]*\n?|```$/g, "")}</code>
+                      </pre>
+                    ) : (
+                      <span>{option}</span>
+                    )}
                   </Label>
                 </motion.div>
               ))}
@@ -654,9 +755,15 @@ className="bg-gradient-to-r from-blue-500 to-blue-600 h-2.5 rounded-full shadow-
                   className="mt-4 p-4 bg-gray-800 rounded-lg"
                 >
                   <p className="font-medium text-white text-sm">Explanation:</p>
-                  <p className="text-gray-300 text-sm mt-2">
-                    {question?.explanation || "No explanation available"}
-                  </p>
+                  <div className="mt-2 text-gray-300 text-sm">
+                    {isCodeLike(question?.explanation) ? (
+                      <pre className="overflow-x-auto bg-[#0D1117] text-[#e6edf3] border border-gray-700 rounded p-3 text-xs">
+<code>{String(question?.explanation || "").replace(/^```[a-zA-Z]*\n?|```$/g, "")}</code>
+                      </pre>
+                    ) : (
+                      <p className="whitespace-pre-wrap">{question?.explanation || "No explanation available"}</p>
+                    )}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -671,6 +778,22 @@ className="bg-gradient-to-r from-blue-500 to-blue-600 h-2.5 rounded-full shadow-
                 title="Show/Hide Explanation (Ctrl + E)"
               >
                 {showExplanation ? "Hide Explanation" : "Show Explanation"}
+              </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                onClick={() => {
+                  if (currentQuestion > 0) {
+                    setCurrentQuestion(currentQuestion - 1);
+                    setShowExplanation(false);
+                  }
+                }}
+                variant="secondary"
+                className="w-full sm:w-auto bg-gray-700 text-white hover:bg-gray-600 px-4 py-2 text-sm sm:px-6 sm:py-3 sm:text-base cursor-pointer"
+                title="Previous Question (Ctrl + Shift + Enter)"
+                disabled={currentQuestion === 0}
+              >
+                Previous
               </Button>
             </motion.div>
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>

@@ -200,6 +200,8 @@ const Header = () => {
                   userButtonAvatarBox: {
                     width: "40px",
                     height: "40px",
+                    borderRadius: "50%",
+                    border: "2px solid var(--border)",
                   },
                   userButton: {
                     style: {
@@ -209,6 +211,17 @@ const Header = () => {
                       margin: 0,
                       width: "auto",
                       height: "auto",
+                    },
+                  },
+                  userButtonPopoverCard: {
+                    background: "var(--card)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "0.625rem",
+                  },
+                  userButtonPopoverActionButton: {
+                    color: "var(--foreground)",
+                    "&:hover": {
+                      background: "var(--muted)",
                     },
                   },
                 },

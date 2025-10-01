@@ -1,0 +1,20 @@
+# Database Configuration (PostgreSQL/Neon)
+DATABASE_URL="postgresql://AI-Career-Coach_owner:HJXBnz5wVcFM8eTncw@ep-quiet-sea-a5lkwqza-pooler.eastus2.azure.neon.tech/AI-Career-Coach?sslmode=require"
+
+# Clerk Authentication
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key_here
+CLERK_SECRET_KEY=your_clerk_secret_key_here
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+
+# Google Gemini AI
+GEMINI_API_KEY=AIzaSyAtKjoMPcy1ETIA5Dx3FJYcDaCD67MIELo
+
+# Inngest (Background Jobs)
+INNGEST_SIGNING_KEY=signkey-prod-e726db611b177970cf581d7b1200f2d
+INNGEST_EVENT_KEY=your_inngest_event_key_here
+
+# EmailJS Configuration
+NEXT_PUBLIC_EMAILJS_SERVICE_ID=service_xatd53n
+NEXT_PUBLIC_EMAILJS_TEMPLATE_ID=template_xyopk9u
+NEXT_PUBLIC_EMAILJS_PUBLIC_KEY=pYV0Kw6jcCG9dVv8j

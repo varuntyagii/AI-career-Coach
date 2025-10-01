@@ -35,7 +35,7 @@ const AnimatedCounter = ({ end, duration, suffix = "", prefix = "" }) => {
 
 export default function Home() {
   return (
-    <div>
+    <div className="overflow-x-hidden w-full">
       <div className="grid-background"></div>
       <HeroSection/> 
 
