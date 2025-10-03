@@ -475,6 +475,7 @@ export default function ResumeBuilder({ initialContent }) {
   const [resumeMode, setResumeMode] = useState("preview");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaved, setIsSaved] = useState(!!initialContent);
+  const [hasRequiredContent, setHasRequiredContent] = useState(false);
 
   const {
     control,
@@ -503,6 +504,17 @@ export default function ResumeBuilder({ initialContent }) {
 
   const formValues = watch();
 
+  // Check if required fields are filled
+  const checkRequiredContent = () => {
+    const { contactInfo, summary, skills, experience, education } = formValues;
+    
+    // Check if at least basic required fields are filled
+    const hasBasicInfo = contactInfo?.name || contactInfo?.surname || contactInfo?.email;
+    const hasContent = summary || skills || (experience && experience.length > 0) || (education && education.length > 0);
+    
+    return hasBasicInfo || hasContent;
+  };
+
   useEffect(() => {
     if (initialContent) setActiveTab("preview");
   }, [initialContent]);
@@ -511,12 +523,19 @@ export default function ResumeBuilder({ initialContent }) {
     if (activeTab === "edit") {
       const newContent = getCombinedContent();
       setPreviewContent(newContent || initialContent || "");
-      // Mark as unsaved when content changes (unless it's initial content)
-      if (initialContent && newContent !== initialContent) {
-        setIsSaved(false);
-      }
     }
   }, [formValues, activeTab]);
+
+  // Always update preview content when form values change, regardless of active tab
+  useEffect(() => {
+    const newContent = getCombinedContent();
+    if (newContent && newContent.trim() !== "") {
+      setPreviewContent(newContent);
+    }
+    
+    // Update required content status
+    setHasRequiredContent(checkRequiredContent());
+  }, [formValues]);
 
   useEffect(() => {
     if (saveResult && !isSaving) {
@@ -536,8 +555,13 @@ export default function ResumeBuilder({ initialContent }) {
     if (contactInfo?.linkedin) parts.push(`💼 [LinkedIn](${contactInfo.linkedin})`);
     if (contactInfo?.twitter) parts.push(`🐦 [Twitter](${contactInfo.twitter})`);
 
-    return parts.length > 0
-      ? `## <div align="center">${user?.fullName || "Your Name"}</div>
+    // Get the full name from form data (name + surname) or fallback to Google profile name
+    const fullName = contactInfo?.name && contactInfo?.surname 
+      ? `${contactInfo.name} ${contactInfo.surname}`
+      : contactInfo?.name || contactInfo?.surname || user?.fullName || "Your Name";
+
+    return parts.length > 0 || fullName !== "Your Name"
+      ? `## <div align="center">${fullName}</div>
         \n\n<div align="center">\n\n${parts.join(" | ")}\n\n</div>`
       : "";
   };
@@ -557,46 +581,165 @@ export default function ResumeBuilder({ initialContent }) {
   };
 
   const handleGeneratePDF = async () => {
+    console.log("PDF generation button clicked!");
+    
     // Check if resume is saved first
     if (!isSaved) {
       toast.error("Please save your resume first before downloading PDF");
       return;
     }
-
+    
+    // Check if required content is available
+    if (!hasRequiredContent) {
+      toast.error("Please fill in some resume details before downloading PDF");
+      return;
+    }
+    
+    // Get the most current content from form or preview
+    const currentContent = getCombinedContent() || previewContent;
+    
     // Validate if there's content to generate PDF
-    if (!previewContent || previewContent.trim() === "") {
+    if (!currentContent || currentContent.trim() === "") {
       toast.error("Please add some content to your resume before downloading");
       return;
     }
 
-    const element = document.getElementById("resume-pdf");
-    if (!element) {
-      toast.error("Resume content not found. Please try again.");
-      return;
-    }
-
-    // Check if element has actual content
-    if (!element.textContent || element.textContent.trim() === "") {
-      toast.error("Please fill in your resume details before downloading");
-      return;
-    }
+    console.log("Current content for PDF:", currentContent);
+    console.log("Is saved:", isSaved);
+    console.log("Form values:", formValues);
 
     setIsGenerating(true);
     try {
+      // Dynamic import of html2pdf.js
+      console.log("Loading html2pdf.js...");
       const html2pdf = (await import("html2pdf.js")).default;
+      console.log("html2pdf loaded successfully:", html2pdf);
+      
+      // Get the full name from form data for filename
+      const { contactInfo } = formValues;
+      const fullName = contactInfo?.name && contactInfo?.surname 
+        ? `${contactInfo.name}_${contactInfo.surname}`
+        : contactInfo?.name || contactInfo?.surname || user?.fullName || "resume";
+      
+      // Create a temporary element with the content for PDF generation
+      const tempElement = document.createElement('div');
+      tempElement.style.cssText = `
+        background: white;
+        color: black;
+        padding: 20px;
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        width: 210mm;
+        min-height: 297mm;
+      `;
+      
+      // Convert markdown to HTML for better PDF rendering
+      const htmlContent = currentContent
+        .replace(/^## (.*$)/gim, '<h2 style="text-align: center; margin: 20px 0;">$1</h2>')
+        .replace(/^### (.*$)/gim, '<h3 style="margin: 15px 0;">$1</h3>')
+        .replace(/^#### (.*$)/gim, '<h4 style="margin: 10px 0;">$1</h4>')
+        .replace(/^\*\*(.*)\*\*/gim, '<strong>$1</strong>')
+        .replace(/^\*(.*)\*/gim, '<em>$1</em>')
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2">$1</a>')
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n/g, '<br>');
+      
+      tempElement.innerHTML = `<p>${htmlContent}</p>`;
+      document.body.appendChild(tempElement);
+      
       const opt = {
-        margin: [15, 15],
-        filename: `${user?.fullName || "resume"}_resume.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        margin: [10, 10, 10, 10],
+        filename: `${fullName}_resume.pdf`,
+        image: { type: "jpeg", quality: 0.8 },
+        html2canvas: { 
+          scale: 1.5,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          width: 794, // A4 width in pixels at 96 DPI
+          height: 1123 // A4 height in pixels at 96 DPI
+        },
+        jsPDF: { 
+          unit: "mm", 
+          format: "a4", 
+          orientation: "portrait" 
+        }
       };
 
-      await html2pdf().set(opt).from(element).save();
+      // Generate and save PDF
+      await html2pdf().set(opt).from(tempElement).save();
+      
+      // Clean up temporary element
+      document.body.removeChild(tempElement);
+      
       toast.success("PDF downloaded successfully!");
     } catch (error) {
       console.error("PDF generation error:", error);
-      toast.error("Failed to generate PDF. Please try again.");
+      
+      // Fallback: Try with even simpler options
+      try {
+        toast.info("Retrying with basic PDF generation...");
+        const html2pdf = (await import("html2pdf.js")).default;
+        
+        // Create simple text content
+        const tempElement = document.createElement('div');
+        tempElement.style.cssText = `
+          background: white;
+          color: black;
+          padding: 20px;
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+        `;
+        tempElement.textContent = currentContent;
+        document.body.appendChild(tempElement);
+        
+        const simpleOpt = {
+          margin: 10,
+          filename: `${fullName}_resume.pdf`,
+          image: { type: "jpeg", quality: 0.7 },
+          html2canvas: { scale: 1 },
+          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+        };
+
+        await html2pdf().set(simpleOpt).from(tempElement).save();
+        
+        // Clean up
+        document.body.removeChild(tempElement);
+        
+        toast.success("PDF downloaded successfully!");
+      } catch (fallbackError) {
+        console.error("Fallback PDF generation error:", fallbackError);
+        
+        // Final fallback: Use browser print functionality
+        try {
+          toast.info("Using browser print as final fallback...");
+          const printWindow = window.open('', '_blank');
+          printWindow.document.write(`
+            <html>
+              <head>
+                <title>Resume - ${fullName}</title>
+                <style>
+                  body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
+                  h2 { text-align: center; margin: 20px 0; }
+                  h3 { margin: 15px 0; }
+                  h4 { margin: 10px 0; }
+                  p { margin: 10px 0; }
+                  @media print { body { margin: 0; } }
+                </style>
+              </head>
+              <body>
+                ${currentContent.replace(/\n/g, '<br>')}
+              </body>
+            </html>
+          `);
+          printWindow.document.close();
+          printWindow.print();
+          toast.success("Print dialog opened. You can save as PDF from there.");
+        } catch (printError) {
+          console.error("Print fallback error:", printError);
+          toast.error(`PDF generation failed completely. Please try refreshing the page and try again.`);
+        }
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -604,14 +747,28 @@ export default function ResumeBuilder({ initialContent }) {
 
   const onSubmit = async (data) => {
     try {
-      const formattedContent = previewContent
+      // Get the most current content from form or preview
+      const currentContent = getCombinedContent() || previewContent;
+      const formattedContent = currentContent
         .replace(/\n/g, "\n")
         .replace(/\n\s*\n/g, "\n\n")
         .trim();
 
+      if (!formattedContent || formattedContent.trim() === "") {
+        toast.error("Please add some content to your resume before saving");
+        return;
+      }
+
+      // Update preview content with the formatted content
+      setPreviewContent(formattedContent);
+      
       await saveResumeFn(formattedContent);
+      
+      // Switch to markdown tab after successful save
+      setActiveTab("preview");
     } catch (error) {
       console.error("Save error:", error);
+      toast.error("Failed to save resume. Please try again.");
     }
   };
 
@@ -621,12 +778,16 @@ export default function ResumeBuilder({ initialContent }) {
         <h1 className="font-bold gradient-title text-3xl sm:text-4xl lg:text-5xl tracking-tight">
           Resume Builder
         </h1>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-3">
           <Button
-            variant="destructive"
             onClick={handleSubmit(onSubmit)}
-            disabled={isSaving}
-            className="transition-all duration-200 hover:scale-105 w-full sm:w-auto cursor-pointer"
+            disabled={isSaving || !hasRequiredContent}
+            className={`transition-all duration-200 hover:scale-105 ${
+              !hasRequiredContent 
+                ? "opacity-50 cursor-not-allowed bg-gray-400" 
+                : "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-md"
+            }`}
+            title={!hasRequiredContent ? "Please fill in some resume details first" : "Save your resume"}
           >
             {isSaving ? (
               <>
@@ -635,16 +796,23 @@ export default function ResumeBuilder({ initialContent }) {
               </>
             ) : (
               <>
-                <Save className="mr-2 h-4 w-4 " />
-                Save
+                <Save className="mr-2 h-4 w-4" />
+                Save Resume
               </>
             )}
           </Button>
           <Button
-            onClick={handleGeneratePDF}
-            disabled={isGenerating || !isSaved || !previewContent || previewContent.trim() === ""}
-            className="transition-all duration-200 hover:scale-105 w-full sm:w-auto cursor-pointer"
-            title={!isSaved ? "Please save your resume first" : (!previewContent || previewContent.trim() === "" ? "Please add content to your resume first" : "Download your resume as PDF")}
+            onClick={() => {
+              console.log("Button clicked!");
+              handleGeneratePDF();
+            }}
+            disabled={isGenerating || !isSaved}
+            className={`transition-all duration-200 hover:scale-105 ${
+              isSaved 
+                ? "bg-purple-600 hover:bg-purple-700 text-white cursor-pointer shadow-md" 
+                : "bg-gray-400 cursor-not-allowed opacity-50"
+            }`}
+            title={!isSaved ? "Please save your resume first" : "Download your resume as PDF"}
           >
             {isGenerating ? (
               <>
@@ -663,10 +831,10 @@ export default function ResumeBuilder({ initialContent }) {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto mb-6">
-          <TabsTrigger value="edit" className="transition-all duration-200">
+          <TabsTrigger value="edit" className="transition-all duration-200 cursor-pointer">
             Form
           </TabsTrigger>
-          <TabsTrigger value="preview" className="transition-all duration-200">
+          <TabsTrigger value="preview" className="transition-all duration-200 cursor-pointer">
             Markdown
           </TabsTrigger>
         </TabsList>
@@ -859,7 +1027,7 @@ export default function ResumeBuilder({ initialContent }) {
             <Button
               variant="link"
               type="button"
-              className="mb-4 transition-all duration-200 hover:text-primary"
+              className="mb-4 transition-all duration-200 hover:text-primary cursor-pointer"
               onClick={() =>
                 setResumeMode(resumeMode === "preview" ? "edit" : "preview")
               }
@@ -898,13 +1066,21 @@ export default function ResumeBuilder({ initialContent }) {
             />
           </div>
           <div className="hidden">
-            <div id="resume-pdf">
+            <div id="resume-pdf" style={{ 
+              background: "white", 
+              color: "black", 
+              padding: "20px",
+              minHeight: "800px",
+              fontFamily: "Arial, sans-serif",
+              lineHeight: "1.6"
+            }}>
               <MDEditor.Markdown
-                source={previewContent}
+                source={getCombinedContent() || previewContent}
                 style={{
                   background: "white",
                   color: "black",
-                  padding: "20px",
+                  padding: "0",
+                  margin: "0"
                 }}
               />
             </div>
