@@ -9,6 +9,7 @@ import Footer from "@/components/footer";
 import FloatingChat from "@/components/floating-chat";
 import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from '@clerk/themes';
+import { checkUser } from "@/lib/checkUser";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
@@ -19,7 +20,9 @@ export const metadata = {
   },
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+   const user = await checkUser();
+
   return (
     <ClerkProvider 
       appearance={{
